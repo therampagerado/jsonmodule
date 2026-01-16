@@ -453,7 +453,50 @@ class jsonModule extends Module
             $json['@context'] = 'https://schema.org';
             $json['@type'] = 'Organization';
         }
-        return json_encode($json);
+        return json_encode($json, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @return array
+     */
+    protected function buildWebSiteSearchActionNode()
+    {
+        $ctx = $this->context;
+
+        // Base shop URL (canonical root)
+        $baseUrl = $ctx->shop->getBaseURL(true);
+
+        // Shop name (or fallback)
+        $siteName = Configuration::get('PS_SHOP_NAME', (int)$ctx->language->id);
+        if (!$siteName) {
+            $siteName = $ctx->shop->name;
+        }
+
+        // IMPORTANT: keep {search_term_string} as-is (do NOT urlencode it)
+        // Use the search controller pattern used by TB/PS1.6:
+        // /search?search_query=...
+        $urlTemplate = $ctx->link->getPageLink(
+            'search',
+            true,
+            (int)$ctx->language->id,
+            'search_query={search_term_string}'
+        );
+
+        return [
+            '@type' => 'WebSite',
+            '@id' => rtrim($baseUrl, '/') . '/#website',
+            'url' => $baseUrl,
+            'name' => $siteName,
+            'potentialAction' => [
+                '@type' => 'SearchAction',
+                'target' => [
+                    '@type' => 'EntryPoint',
+                    'urlTemplate' => $urlTemplate,
+                ],
+                'query-input' => 'required name=search_term_string',
+            ],
+            'inLanguage' => $ctx->language->iso_code,
+        ];
     }
 
     /**
@@ -1360,9 +1403,30 @@ class jsonModule extends Module
             ]);
         }
 
+        $graph = [];
+        $organizationJson = json_decode(Configuration::get(static::ORGANIZATION_JSON), true);
+        if (is_array($organizationJson) && !empty($organizationJson)) {
+            unset($organizationJson['@context']);
+            $graph[] = $organizationJson;
+        }
+        $graph[] = $this->buildWebSiteSearchActionNode();
+
+        $organizationJsonOutput = '';
+        if (!empty($graph)) {
+            $organizationJsonOutput = json_encode(
+                [
+                    '@context' => 'https://schema.org',
+                    '@graph' => $graph,
+                ],
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            );
+        }
+
         $this->context->smarty->assign([
-            static::ORGANIZATION_JSON => Configuration::get(static::ORGANIZATION_JSON),
-            static::PRODUCT_JSON => isset($arrProduct) ? json_encode($arrProduct) : '',
+            static::ORGANIZATION_JSON => $organizationJsonOutput,
+            static::PRODUCT_JSON => isset($arrProduct)
+                ? json_encode($arrProduct, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+                : '',
         ]);
 
         return $this->display(__FILE__, 'jsonmodule.tpl');
