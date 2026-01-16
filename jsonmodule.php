@@ -1392,18 +1392,18 @@ class jsonModule extends Module
         }
 
 
-        if (is_array($path) && $path) {
-            $this->context->smarty->assign([
-                'path' => $path
-            ]);
-        }
-
-        $this->context->smarty->assign([
+        $smartyAssign = [
             static::ORGANIZATION_JSON => $this->buildJsonLdGraph(),
             static::PRODUCT_JSON => isset($arrProduct)
                 ? json_encode($arrProduct, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
                 : '',
-        ]);
+        ];
+
+        if (is_array($path) && $path) {
+            $smartyAssign['path'] = $path;
+        }
+
+        $this->context->smarty->assign($smartyAssign);
 
         return $this->display(__FILE__, 'jsonmodule.tpl');
 
