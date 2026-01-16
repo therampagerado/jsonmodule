@@ -453,7 +453,7 @@ class jsonModule extends Module
             $json['@context'] = 'https://schema.org';
             $json['@type'] = 'Organization';
         }
-        return json_encode($json, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return json_encode($json, JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -1395,7 +1395,7 @@ class jsonModule extends Module
         $smartyAssign = [
             static::ORGANIZATION_JSON => $this->buildJsonLdGraph(),
             static::PRODUCT_JSON => isset($arrProduct)
-                ? json_encode($arrProduct, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+                ? json_encode($arrProduct, JSON_UNESCAPED_UNICODE)
                 : '',
         ];
 
@@ -1431,7 +1431,7 @@ class jsonModule extends Module
         return json_encode([
             '@context' => 'https://schema.org',
             '@graph' => $graph,
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     /**
