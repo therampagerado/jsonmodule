@@ -135,6 +135,7 @@ class jsonModule extends Module
             || Tools::isSubmit('submitFounder')
             || Tools::isSubmit('submitLocations')
             || Tools::isSubmit('submitContactPoints')
+            || Tools::isSubmit('submitSettings')
         ) {
             // create a config json to store in database
             $config = [];
@@ -237,7 +238,10 @@ class jsonModule extends Module
             }
             $config['contactPoints'] = $contactPoints;
 
-            Configuration::updateValue(static::JSONMODULE_CONFIG, json_encode($config));
+            // settings section
+            $config['settings']['disableBreadcrumbSchema'] = (bool)Tools::isSubmit('disableBreadcrumbSchema_0');
+
+            Configuration::updateValue(static::JSONMODULE_CONFIG, $this->encodeJson($config));
 
             // Error handling
             if ($this->_errors) {
@@ -453,7 +457,17 @@ class jsonModule extends Module
             $json['@context'] = 'https://schema.org';
             $json['@type'] = 'Organization';
         }
-        return json_encode($json);
+        return $this->encodeJson($json);
+    }
+
+    /**
+     * @param array $data
+     *
+     * @return false|string
+     */
+    private function encodeJson(array $data)
+    {
+        return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /**
@@ -1052,6 +1066,39 @@ class jsonModule extends Module
             ],
         ];
         $fields[] = $fieldsForm4;
+
+        $fieldsForm5 = [
+            'form' => [
+                'legend' => [
+                    'title' => $this->l('Settings'),
+                    'icon' => 'icon-cog',
+                ],
+                'input' => [
+                    [
+                        'type' => 'checkbox',
+                        'name' => 'disableBreadcrumbSchema',
+                        'label' => $this->l('Breadcrumbs schema'),
+                        'values' => [
+                            'query' => [
+                                [
+                                    'id_option' => 0,
+                                    'name' => $this->l('Disable breadcrumb schema output'),
+                                ],
+                            ],
+                            'id' => 'id_option',
+                            'name' => 'name',
+                        ],
+                    ],
+                ],
+                'submit' => [
+                    'title' => $this->l('Save'),
+                    'class' => 'btn btn-default pull-right',
+                    'name' => 'submitSettings',
+                ],
+            ],
+        ];
+        $fields[] = $fieldsForm5;
+
         $lang = new Language((int)Configuration::get('PS_LANG_DEFAULT'));
         /** @var AdminController $controller */
         $controller = $this->context->controller;
@@ -1118,13 +1165,17 @@ class jsonModule extends Module
             'contactPointsType_0' => '',
             'contactPointsCountries_0[]' => [],
             'contactPointsLanguages_0[]' => [],
+            'disableBreadcrumbSchema_0' => false,
 
         ];
 
-        foreach (['companyInformation', 'founding', 'locations', 'reviews'] as $configKey) {
+        foreach (['companyInformation', 'founding', 'locations', 'reviews', 'settings'] as $configKey) {
             if (isset($config[$configKey]) && is_array($config[$configKey])) {
                 foreach ($config[$configKey] as $key => $value) {
                     $retArr[$key] = $value;
+                    if ($key === 'disableBreadcrumbSchema') {
+                        $retArr[$key . '_0'] = (bool)$value;
+                    }
                     if ($key == 'logo') {
                         $retArr[$key . '_old'] = $value;
                     }
@@ -1362,7 +1413,8 @@ class jsonModule extends Module
 
         $this->context->smarty->assign([
             static::ORGANIZATION_JSON => Configuration::get(static::ORGANIZATION_JSON),
-            static::PRODUCT_JSON => isset($arrProduct) ? json_encode($arrProduct) : '',
+            static::PRODUCT_JSON => isset($arrProduct) ? $this->encodeJson($arrProduct) : '',
+            'disableBreadcrumbSchema' => isset($config['settings']['disableBreadcrumbSchema']) ? (bool)$config['settings']['disableBreadcrumbSchema'] : false,
         ]);
 
         return $this->display(__FILE__, 'jsonmodule.tpl');
