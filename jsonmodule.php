@@ -131,6 +131,7 @@ class jsonModule extends Module
             Tools::isSubmit('submitCompanyInformation')
             || Tools::isSubmit('submitSocialMediaCompany')
             || Tools::isSubmit('submitReviews')
+            || Tools::isSubmit('submitSettings')
             || Tools::isSubmit('submitFounding')
             || Tools::isSubmit('submitFounder')
             || Tools::isSubmit('submitLocations')
@@ -167,6 +168,9 @@ class jsonModule extends Module
             // reviews section
             $config['reviews']['review_type'] = Tools::getValue('review_type');
             $config['reviews']['yotpo_app_id'] = Tools::getValue('yotpo_app_id');
+
+            // settings section
+            $config['settings']['disableBreadcrumbsSchema'] = (bool)Tools::getValue('disableBreadcrumbsSchema_0');
 
             // determine founder and contactpoint fieldsets count
             $founderCount = 0;
@@ -237,7 +241,7 @@ class jsonModule extends Module
             }
             $config['contactPoints'] = $contactPoints;
 
-            Configuration::updateValue(static::JSONMODULE_CONFIG, json_encode($config));
+            Configuration::updateValue(static::JSONMODULE_CONFIG, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
             // Error handling
             if ($this->_errors) {
@@ -453,7 +457,7 @@ class jsonModule extends Module
             $json['@context'] = 'https://schema.org';
             $json['@type'] = 'Organization';
         }
-        return json_encode($json);
+        return json_encode($json, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /**
@@ -613,6 +617,40 @@ class jsonModule extends Module
                     'title' => $this->l('Save'),
                     'class' => 'btn btn-default pull-right',
                     'name' => 'submitSocialMediaCompany',
+                ],
+            ],
+        ];
+        $fields[] = $fieldsForm1_;
+
+        // settings
+        $inputs1_ = [];
+        $inputs1_[] = [
+            'type' => 'checkbox',
+            'label' => $this->l('Breadcrumb schema'),
+            'name' => 'disableBreadcrumbsSchema',
+            'values' => [
+                'query' => [
+                    [
+                        'id_option' => 0,
+                        'name' => $this->l('Disable BreadcrumbList schema output'),
+                    ],
+                ],
+                'id' => 'id_option',
+                'name' => 'name',
+            ],
+            'desc' => $this->l('Enable this if your theme already outputs breadcrumb schema to avoid duplicate structured data.'),
+        ];
+        $fieldsForm1_ = [
+            'form' => [
+                'legend' => [
+                    'title' => $this->l('Settings'),
+                    'icon' => 'icon-cogs',
+                ],
+                'input' => $inputs1_,
+                'submit' => [
+                    'title' => $this->l('Save'),
+                    'class' => 'btn btn-default pull-right',
+                    'name' => 'submitSettings',
                 ],
             ],
         ];
@@ -1094,6 +1132,7 @@ class jsonModule extends Module
             'companyLinkedin' => '',
             'review_type' => '',
             'yotpo_app_id' => '',
+            'disableBreadcrumbsSchema_0' => false,
             'foundingDate' => '',
             'foundingStreetAddress' => '',
             'foundingLocality' => '',
@@ -1354,15 +1393,35 @@ class jsonModule extends Module
         }
 
 
-        if (is_array($path) && $path) {
+        $disableBreadcrumbsSchema = false;
+        if (isset($config['settings']) && is_array($config['settings'])) {
+            $disableBreadcrumbsSchema = !empty($config['settings']['disableBreadcrumbsSchema']);
+        }
+
+        if (is_array($path) && $path && !$disableBreadcrumbsSchema) {
+            $breadcrumbList = [];
+            foreach ($path as $index => $pathItem) {
+                $breadcrumbList[] = [
+                    '@type' => 'ListItem',
+                    'position' => $index + 1,
+                    'item' => [
+                        '@id' => $pathItem['url'],
+                        'name' => $pathItem['name'],
+                    ],
+                ];
+            }
             $this->context->smarty->assign([
-                'path' => $path
+                'BREADCRUMB_JSON' => json_encode([
+                    '@context' => 'https://schema.org',
+                    '@type' => 'BreadcrumbList',
+                    'itemListElement' => $breadcrumbList,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ]);
         }
 
         $this->context->smarty->assign([
             static::ORGANIZATION_JSON => Configuration::get(static::ORGANIZATION_JSON),
-            static::PRODUCT_JSON => isset($arrProduct) ? json_encode($arrProduct) : '',
+            static::PRODUCT_JSON => isset($arrProduct) ? json_encode($arrProduct, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '',
         ]);
 
         return $this->display(__FILE__, 'jsonmodule.tpl');
