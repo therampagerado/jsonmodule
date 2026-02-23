@@ -1,6 +1,6 @@
 <script type="application/ld+json">{$ORGANIZATION_JSON}</script>
 
-{if isset($path)}
+{if $emitBreadcrumbSchema && isset($path)}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",

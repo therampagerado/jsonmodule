@@ -135,6 +135,7 @@ class jsonModule extends Module
             || Tools::isSubmit('submitFounder')
             || Tools::isSubmit('submitLocations')
             || Tools::isSubmit('submitContactPoints')
+            || Tools::isSubmit('submitSettings')
         ) {
             // create a config json to store in database
             $config = [];
@@ -167,6 +168,9 @@ class jsonModule extends Module
             // reviews section
             $config['reviews']['review_type'] = Tools::getValue('review_type');
             $config['reviews']['yotpo_app_id'] = Tools::getValue('yotpo_app_id');
+
+            // settings section
+            $config['settings']['emitBreadcrumbSchema'] = (bool)Tools::getValue('emitBreadcrumbSchema', 1);
 
             // determine founder and contactpoint fieldsets count
             $founderCount = 0;
@@ -237,7 +241,7 @@ class jsonModule extends Module
             }
             $config['contactPoints'] = $contactPoints;
 
-            Configuration::updateValue(static::JSONMODULE_CONFIG, json_encode($config));
+            Configuration::updateValue(static::JSONMODULE_CONFIG, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
             // Error handling
             if ($this->_errors) {
@@ -453,7 +457,7 @@ class jsonModule extends Module
             $json['@context'] = 'https://schema.org';
             $json['@type'] = 'Organization';
         }
-        return json_encode($json);
+        return json_encode($json, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /**
@@ -617,6 +621,42 @@ class jsonModule extends Module
             ],
         ];
         $fields[] = $fieldsForm1_;
+
+        // settings
+        $settingsInputs = [];
+        $settingsInputs[] = [
+            'type' => 'radio',
+            'label' => $this->l('Breadcrumb schema'),
+            'name' => 'emitBreadcrumbSchema',
+            'values' => [
+                [
+                    'id' => 'emit_breadcrumb_schema_1',
+                    'value' => 1,
+                    'label' => $this->l('Enabled'),
+                ],
+                [
+                    'id' => 'emit_breadcrumb_schema_0',
+                    'value' => 0,
+                    'label' => $this->l('Disabled'),
+                ],
+            ],
+            'desc' => $this->l('Disable this option when your theme already provides breadcrumb schema markup.'),
+        ];
+
+        $fields[] = [
+            'form' => [
+                'legend' => [
+                    'title' => $this->l('Settings'),
+                    'icon' => 'icon-cogs',
+                ],
+                'input' => $settingsInputs,
+                'submit' => [
+                    'title' => $this->l('Save'),
+                    'class' => 'btn btn-default pull-right',
+                    'name' => 'submitSettings',
+                ],
+            ],
+        ];
 
 
         // input group 1-social media
@@ -1094,6 +1134,7 @@ class jsonModule extends Module
             'companyLinkedin' => '',
             'review_type' => '',
             'yotpo_app_id' => '',
+            'emitBreadcrumbSchema' => 1,
             'foundingDate' => '',
             'foundingStreetAddress' => '',
             'foundingLocality' => '',
@@ -1121,7 +1162,7 @@ class jsonModule extends Module
 
         ];
 
-        foreach (['companyInformation', 'founding', 'locations', 'reviews'] as $configKey) {
+        foreach (['companyInformation', 'founding', 'locations', 'reviews', 'settings'] as $configKey) {
             if (isset($config[$configKey]) && is_array($config[$configKey])) {
                 foreach ($config[$configKey] as $key => $value) {
                     $retArr[$key] = $value;
@@ -1349,7 +1390,12 @@ class jsonModule extends Module
 
         } // end if product
 
-        if ($id_category = Tools::getValue('id_category')) {
+        $emitBreadcrumbSchema = true;
+        if (isset($config['settings']['emitBreadcrumbSchema'])) {
+            $emitBreadcrumbSchema = (bool)$config['settings']['emitBreadcrumbSchema'];
+        }
+
+        if ($emitBreadcrumbSchema && ($id_category = Tools::getValue('id_category'))) {
             $path = $this->getPath((int)$id_category);
         }
 
@@ -1362,7 +1408,10 @@ class jsonModule extends Module
 
         $this->context->smarty->assign([
             static::ORGANIZATION_JSON => Configuration::get(static::ORGANIZATION_JSON),
-            static::PRODUCT_JSON => isset($arrProduct) ? json_encode($arrProduct) : '',
+            static::PRODUCT_JSON => isset($arrProduct)
+                ? json_encode($arrProduct, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                : '',
+            'emitBreadcrumbSchema' => $emitBreadcrumbSchema,
         ]);
 
         return $this->display(__FILE__, 'jsonmodule.tpl');
