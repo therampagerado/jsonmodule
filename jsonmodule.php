@@ -131,6 +131,7 @@ class jsonModule extends Module
             Tools::isSubmit('submitCompanyInformation')
             || Tools::isSubmit('submitSocialMediaCompany')
             || Tools::isSubmit('submitReviews')
+            || Tools::isSubmit('submitSettings')
             || Tools::isSubmit('submitFounding')
             || Tools::isSubmit('submitFounder')
             || Tools::isSubmit('submitLocations')
@@ -167,6 +168,9 @@ class jsonModule extends Module
             // reviews section
             $config['reviews']['review_type'] = Tools::getValue('review_type');
             $config['reviews']['yotpo_app_id'] = Tools::getValue('yotpo_app_id');
+
+            // settings section
+            $config['settings']['emitBreadcrumbSchema'] = (bool)Tools::getValue('emitBreadcrumbSchema', 1);
 
             // determine founder and contactpoint fieldsets count
             $founderCount = 0;
@@ -237,7 +241,7 @@ class jsonModule extends Module
             }
             $config['contactPoints'] = $contactPoints;
 
-            Configuration::updateValue(static::JSONMODULE_CONFIG, json_encode($config));
+            Configuration::updateValue(static::JSONMODULE_CONFIG, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
             // Error handling
             if ($this->_errors) {
@@ -453,7 +457,7 @@ class jsonModule extends Module
             $json['@context'] = 'https://schema.org';
             $json['@type'] = 'Organization';
         }
-        return json_encode($json);
+        return json_encode($json, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /**
@@ -617,6 +621,42 @@ class jsonModule extends Module
             ],
         ];
         $fields[] = $fieldsForm1_;
+
+        // settings
+        $inputsSettings = [];
+        $inputsSettings[] = [
+            'type' => 'switch',
+            'label' => $this->l('Emit breadcrumb schema'),
+            'name' => 'emitBreadcrumbSchema',
+            'is_bool' => true,
+            'desc' => $this->l('Disable this if your theme already outputs breadcrumb structured data.'),
+            'values' => [
+                [
+                    'id' => 'emit_breadcrumb_schema_on',
+                    'value' => 1,
+                    'label' => $this->l('Enabled'),
+                ],
+                [
+                    'id' => 'emit_breadcrumb_schema_off',
+                    'value' => 0,
+                    'label' => $this->l('Disabled'),
+                ],
+            ],
+        ];
+        $fields[] = [
+            'form' => [
+                'legend' => [
+                    'title' => $this->l('Settings'),
+                    'icon' => 'icon-cogs',
+                ],
+                'input' => $inputsSettings,
+                'submit' => [
+                    'title' => $this->l('Save'),
+                    'class' => 'btn btn-default pull-right',
+                    'name' => 'submitSettings',
+                ],
+            ],
+        ];
 
 
         // input group 1-social media
@@ -1094,6 +1134,7 @@ class jsonModule extends Module
             'companyLinkedin' => '',
             'review_type' => '',
             'yotpo_app_id' => '',
+            'emitBreadcrumbSchema' => true,
             'foundingDate' => '',
             'foundingStreetAddress' => '',
             'foundingLocality' => '',
@@ -1121,7 +1162,7 @@ class jsonModule extends Module
 
         ];
 
-        foreach (['companyInformation', 'founding', 'locations', 'reviews'] as $configKey) {
+        foreach (['companyInformation', 'founding', 'locations', 'reviews', 'settings'] as $configKey) {
             if (isset($config[$configKey]) && is_array($config[$configKey])) {
                 foreach ($config[$configKey] as $key => $value) {
                     $retArr[$key] = $value;
@@ -1354,7 +1395,12 @@ class jsonModule extends Module
         }
 
 
-        if (is_array($path) && $path) {
+        $emitBreadcrumbSchema = true;
+        if (isset($config['settings']) && is_array($config['settings'])) {
+            $emitBreadcrumbSchema = !empty($config['settings']['emitBreadcrumbSchema']);
+        }
+
+        if ($emitBreadcrumbSchema && is_array($path) && $path) {
             $this->context->smarty->assign([
                 'path' => $path
             ]);
@@ -1362,7 +1408,7 @@ class jsonModule extends Module
 
         $this->context->smarty->assign([
             static::ORGANIZATION_JSON => Configuration::get(static::ORGANIZATION_JSON),
-            static::PRODUCT_JSON => isset($arrProduct) ? json_encode($arrProduct) : '',
+            static::PRODUCT_JSON => isset($arrProduct) ? json_encode($arrProduct, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '',
         ]);
 
         return $this->display(__FILE__, 'jsonmodule.tpl');
